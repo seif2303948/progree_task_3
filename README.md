@@ -152,6 +152,3 @@ Units of measurement. standard, metric and imperial units are available. If you 
 lang : optional
 
 You can use the lang parameter to get the output in your language. Learn more
-
-
-## my key = 50ec2b9d66fcceae0e2882eef46dcdbd
