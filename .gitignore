@@ -1,0 +1,224 @@
+import { useState } from "react";
+
+function App() {
+    const apiKey = import.meta.env.VITE_API_KEY;
+    const [city, setCity] = useState("");
+    const [weatherData, setWeatherData] = useState(null);
+    const [errorMessage, setErrorMessage] = useState(null);
+    const [loading, setLoading] = useState("d-none");
+    const [showErrorMessage, setShowErrorMessage] = useState("d-none");
+
+    function errorHandler(data) {
+        setLoading("d-none");
+        setShowErrorMessage("");
+
+        if (!Array.isArray(data)) {
+            switch (Number(data.cod)) {
+                case 400:
+                    setErrorMessage("Location was not found. Please check the spelling and try again.");
+                    break;
+                case 401:
+                    setErrorMessage("Unable to retrieve weather data. Please try again later.");
+                    break;
+                case 429:
+                    setErrorMessage("Too many requests. Please wait a moment before trying again.");
+                    break;
+                case 500:
+                case 501:
+                case 502:
+                case 503:
+                case 504:
+                    setErrorMessage("Weather service is temporarily unavailable. Please try again later.");
+                    break;
+                default:
+                    setErrorMessage("Unable to retrieve weather data. Please try again later.");
+                    break;
+            }
+        } else {
+            setErrorMessage("Location was not found. Please check the spelling and try again.");
+        }
+    }
+
+    function getWeatherData(lat, lon, cityName) {
+        if (!apiKey) {
+            setLoading("d-none");
+            setShowErrorMessage("");
+            setErrorMessage("Missing API key. Add VITE_API_KEY to your .env file.");
+            return;
+        }
+
+        fetch(`https://api.openweathermap.org/data/4.0/onecall/current?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`)
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error(`Weather API error: ${res.status}`);
+                }
+                return res.json();
+            })
+            .then((data) => {
+                if (!data?.data?.[0]) {
+                    throw new Error("No weather data returned");
+                }
+
+                data.data[0].city = cityName;
+                setWeatherData(data);
+                setLoading("d-none");
+            })
+            .catch((err) => {
+                console.error(err);
+                setLoading("d-none");
+                setShowErrorMessage("");
+                setErrorMessage("Unable to retrieve weather data. Please try again later.");
+            });
+    }
+
+    function getDirectGeocoding(cityName) {
+        if (!cityName.trim()) {
+            setShowErrorMessage("");
+            setErrorMessage("Please enter a city name.");
+            return;
+        }
+
+        if (!apiKey) {
+            setLoading("d-none");
+            setShowErrorMessage("");
+            setErrorMessage("Missing API key. Add VITE_API_KEY to your .env file.");
+            return;
+        }
+
+        setWeatherData(null);
+        setErrorMessage(null);
+        setLoading("");
+        setShowErrorMessage("d-none");
+
+        fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(cityName)}&limit=1&appid=${apiKey}`)
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error(`Geocoding API error: ${res.status}`);
+                }
+                return res.json();
+            })
+            .then((data) => {
+                if (data[0]?.lat !== undefined) {
+                    const lat = data[0].lat;
+                    const lon = data[0].lon;
+                    const foundCity = data[0].name;
+                    getWeatherData(lat, lon, foundCity);
+                } else {
+                    errorHandler(data);
+                }
+            })
+            .catch((err) => {
+                console.error(err);
+                setLoading("d-none");
+                setShowErrorMessage("");
+                setErrorMessage("Unable to look up this location. Please try again later.");
+            });
+    }
+
+    if (weatherData === null) {
+        return (
+            <>
+                <header className="text-center">
+                    <h1 className="animate__animated animate__fadeInDown header-title">
+                        Weather API
+                    </h1>
+                    <h3 className="animate__animated animate__fadeInDown header-text">
+                        know the weather in your location now
+                    </h3>
+                </header>
+                <main className="mt-12 text-center">
+                    <div className="form-field mx-auto animate__animated animate__fadeInDown main-inp">
+                        <label htmlFor="fieldText" className="form-label fs-xl">Name of the location</label>
+                        <input
+                            type="text"
+                            className="form-control bg-white fg-black"
+                            id="fieldText"
+                            placeholder="Enter the location here"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                        />
+
+                        <button
+                            type="button"
+                            className="btn-solid theme-primary"
+                            onClick={() => getDirectGeocoding(city)}
+                        >
+                            <i className="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
+                    <div className={`spinner-border mt-12 ` + loading} role="status">
+                        <span className="visually-hidden">Loading…</span>
+                    </div>
+                    <div className={`alert theme-danger error-con justify-content-center ` + showErrorMessage} role="alert">
+                        {errorMessage}
+                    </div>
+                </main>
+            </>
+        );
+    }
+
+    return (
+        <>
+            <header className="text-center">
+                <h1 className="animate__animated animate__fadeInDown header-title">
+                    Weather API
+                </h1>
+                <h3 className="animate__animated animate__fadeInDown header-text">
+                    know the weather in your location now
+                </h3>
+            </header>
+            <main className="mt-12">
+                <div className="form-field mx-auto animate__animated animate__fadeInDown main-inp">
+                    <label htmlFor="fieldText" className="form-label fs-xl">Name of the location</label>
+                    <input
+                        type="text"
+                        className="form-control bg-white fg-black"
+                        id="fieldText"
+                        placeholder="Enter the location here"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                    />
+                    <button
+                        type="button"
+                        className="btn-solid theme-primary"
+                        onClick={() => getDirectGeocoding(city)}
+                    >
+                        <i className="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+                <div className="overflow-hidden">
+                    <div className="output-con mt-12 d-flex animate__animated animate__fadeInDown">
+                        <i className="fa-solid fa-cloud-sun fs-6xl"></i>
+                        <h1 className="fs-6xl">
+                            {Number(weatherData.data[0].temp).toFixed(0)}<sup>o</sup>C
+                        </h1>
+                        <h1 className="fs-6xl">
+                            {weatherData.data[0].city}
+                        </h1>
+                        <div className="d-flex mt-12 justify-content-between h-and-w">
+                            <div className="d-flex align-items-center gap-10 humidity">
+                                <i className="fa-solid fa-water fs-6xl"></i>
+                                <div className="d-flex flex-column">
+                                    <h1>{weatherData.data[0].humidity}%</h1>
+                                    <h1>Humidity</h1>
+                                </div>
+                            </div>
+                            <div className="d-flex flex-column">
+                                <div className="d-flex align-items-center gap-10 wind">
+                                    <i className="fa-solid fa-wind fs-6xl"></i>
+                                    <div className="d-flex flex-column">
+                                        <h1>{weatherData.data[0].wind_speed}km/h</h1>
+                                        <h1>wind speed</h1>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </>
+    );
+}
+
+export default App;
+
